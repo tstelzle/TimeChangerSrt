@@ -27,19 +27,11 @@ def read_data(file: str):
 
 
 def add_time(time_string: str, adding_time: str):
-    adding_time_split_by_milli = adding_time.split(",")
     time_split_by_milli = time_string.split(",")
+    adding_time_split_by_milli = adding_time.split(",")
+
+    milli_seconds = int(time_split_by_milli[1])
     adding_milli_seconds = int(adding_time_split_by_milli[1])
-    time_milli_seconds = int(time_split_by_milli[1])
-    milli_seconds_overflow = False
-    milli_seconds_underflow = False
-    new_milli_seconds = adding_milli_seconds + time_milli_seconds
-    if new_milli_seconds >= 1000:
-        milli_seconds_overflow = True
-        new_milli_seconds = new_milli_seconds - 1000
-    if new_milli_seconds < 0:
-        milli_seconds_underflow = True
-        new_milli_seconds = 1000 + new_milli_seconds
 
     split_time = time_split_by_milli[0].split(":")
     split_adding_time = adding_time_split_by_milli[0].split(":")
@@ -49,67 +41,47 @@ def add_time(time_string: str, adding_time: str):
     hours = int(split_time[0])
 
     adding_seconds = int(split_adding_time[2])
-    if milli_seconds_overflow:
-        adding_seconds += 1
-    if milli_seconds_underflow:
-        adding_seconds -= 1
-    adding_minute = int(split_adding_time[1])
-    adding_hour = int(split_adding_time[0])
+    adding_minutes = int(split_adding_time[1])
+    adding_hours = int(split_adding_time[0])
 
-    new_seconds = seconds + adding_seconds
-    seconds_overflow = False
-    seconds_underflow = False
-    if new_seconds >= 60:
-        seconds_overflow = True
-        new_seconds -= 60
-    elif new_seconds < 0:
-        seconds_underflow = True
-        new_seconds = 60 + new_seconds
+    new_milli_seconds = calcualte_new_time(milli_seconds, adding_milli_seconds, 1000, False, False)
+    new_seconds = calcualte_new_time(seconds, adding_seconds, 60, new_milli_seconds['overflow'],
+                                     new_milli_seconds['underflow'])
+    new_minutes = calcualte_new_time(minutes, adding_minutes, 60, new_seconds['overflow'], new_seconds['underflow'])
+    new_hours = calcualte_new_time(hours, adding_hours, 60, new_minutes['overflow'], new_minutes['underflow'])
 
-    new_minutes = minutes + adding_minute
-    if seconds_overflow:
-        new_minutes += 1
-    if seconds_underflow:
-        new_minutes -= 1
-    minute_overflow = False
-    minute_underflow = False
-    if new_minutes >= 60:
-        minute_overflow = True
-        new_minutes -= 60
-    if new_minutes < 0:
-        minute_underflow = True
-        new_minutes = 60 + new_minutes
+    new_milli_seconds_str = attach_pre_zero(str(new_milli_seconds['time']), 3)
+    new_seconds_str = attach_pre_zero(str(new_seconds['time']), 2)
+    new_minutes_str = attach_pre_zero(str(new_minutes['time']), 2)
+    new_hours_str = attach_pre_zero(str(new_hours['time']), 2)
 
-    new_hours = hours + adding_hour
-    if minute_overflow:
-        new_hours += 1
-    if minute_underflow:
-        new_hours -= 1
+    return new_hours_str + ":" + new_minutes_str + ":" + new_seconds_str + "," + new_milli_seconds_str
 
-    if len(str(new_hours)) < 2:
-        new_hours = "0" + str(new_hours)
-    else:
-        new_hours = str(new_hours)
 
-    if len(str(new_minutes)) < 2:
-        new_minutes = "0" + str(new_minutes)
-    else:
-        new_minutes = str(new_minutes)
+def calcualte_new_time(old_time: int, adding_time: int, max_value: int, prev_overflow: bool, prev_underflow: bool):
+    overflow = False
+    underflow = False
 
-    if len(str(new_seconds)) < 2:
-        new_seconds = "0" + str(new_seconds)
-    else:
-        new_seconds = str(new_seconds)
+    if prev_overflow:
+        adding_time += 1
+    elif prev_underflow:
+        adding_time -= 1
 
-    if len(str(new_milli_seconds)) < 3:
-        if len(str(new_milli_seconds)) == 1:
-            new_milli_seconds = "00" + str(new_milli_seconds)
-        else:
-            new_milli_seconds = "0" + str(new_milli_seconds)
-    else:
-        new_milli_seconds = str(new_milli_seconds)
+    new_time = old_time + adding_time
+    if new_time > max_value:
+        overflow = True
+        new_time -= max_value
+    elif new_time < 0:
+        underflow = True
+        new_time = max_value + new_time
 
-    return new_hours + ":" + new_minutes + ":" + new_seconds + "," + new_milli_seconds
+    return {'time': new_time, 'overflow': overflow, 'underflow': underflow}
+
+
+def attach_pre_zero(time_string: str, length_to_be: int):
+    while len(time_string) < length_to_be:
+        time_string = "0" + time_string
+    return time_string
 
 
 def add_time_to_dict(subtitle_dict: dict, time_to_add: str):
@@ -163,7 +135,6 @@ def main():
         if time[:1] == "-":
             time = negative_time(time[1:])
         subtitles_dict = read_data(file)
-
         subtitles_dict = add_time_to_dict(subtitles_dict, time)
         write_dict(subtitles_dict, file + ".new")
         print("New subtitle file written.")
